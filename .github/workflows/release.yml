@@ -1,13 +1,15 @@
 name: release
-# Push a tag like v0.1.0 → build wheel + Linux/Windows bundles → install-test each bundle on its
-# own OS → publish a GitHub Release with the assets. Nothing is published if a smoke test fails.
+# Build wheel + Linux/Windows bundles → install-test each bundle on its own OS → publish a
+# GitHub Release with the assets. Nothing is published if a smoke test fails.
+# Trigger either by pushing a tag (v0.1.0), or from the Actions tab ("Run workflow") with a
+# version: the release then creates that tag on the commit it was run from.
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: "Existing tag to release (e.g. v0.1.0)"
+        description: "Version tag to create and release (e.g. v0.1.0)"
         required: true
 
 permissions:
@@ -22,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ github.sha }}
       - uses: astral-sh/setup-uv@v5
       - name: Check tag matches package version
         run: |
@@ -98,7 +100,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ github.sha }}
       - uses: actions/download-artifact@v4
         with: { name: dist, path: dist }
       - name: Create GitHub Release
@@ -107,4 +109,6 @@ jobs:
         run: |
           NOTES=".github/release-notes/$TAG.md"
           [ -f "$NOTES" ] || NOTES=/dev/null
-          gh release create "$TAG" dist/* --title "autoapply $TAG" --notes-file "$NOTES" --verify-tag
+          # --target creates the tag at this commit when it doesn't exist yet (manual runs).
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "autoapply $TAG" \
+            --notes-file "$NOTES"
