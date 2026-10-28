@@ -20,6 +20,18 @@ from . import __version__
 from .config import WORKSPACE_MARKER, AppConfig, find_project_root, load_config
 from .store.db import JobStatus, JobStore
 
+
+def _utf8_stdio() -> None:
+    """Windows uses cp1252 for piped output (scripts, CI, redirects), which can't encode the
+    arrows and box characters Rich prints. Force UTF-8 so output never crashes the CLI."""
+    for stream in (sys.stdout, sys.stderr):
+        enc = (getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        if hasattr(stream, "reconfigure") and enc != "utf8":
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+_utf8_stdio()
+
 app = typer.Typer(no_args_is_help=True, help="Human-in-the-loop job application assistant.")
 profile_app = typer.Typer(no_args_is_help=True, help="Build and inspect your profile.")
 jobs_app = typer.Typer(no_args_is_help=True, help="Discover, add and queue postings.")

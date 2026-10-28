@@ -64,7 +64,9 @@ jobs:
         run: |
           tar -xzf dist/autoapply-*-linux.tar.gz
           cd autoapply-*-linux
-          SKIP_SYSTEM_DEPS=1 AUTOAPPLY_SKIP_BROWSER=1 ./install.sh
+          SKIP_SYSTEM_DEPS=1 AUTOAPPLY_SKIP_BROWSER=1 ./install.sh 2>&1 | tee ../install.log
+          rc=${PIPESTATUS[0]}
+          [ "$rc" -eq 0 ] || { tail -n 15 ../install.log | sed 's/^/::error::/'; exit "$rc"; }
       - name: Run the installed app
         run: |
           export PATH="$HOME/.local/bin:$PATH"
@@ -84,15 +86,31 @@ jobs:
         run: |
           Expand-Archive (Get-ChildItem dist\autoapply-*-windows.zip).FullName -DestinationPath .
           $dir = (Get-ChildItem -Directory autoapply-*-windows).FullName
-          powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -SkipBrowser
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $log = powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -SkipBrowser 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          Write-Output $log
+          if ($code -ne 0) {
+            # Surface the tail as annotations so failures are readable without the raw log.
+            ($log -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 15) |
+              ForEach-Object { Write-Output "::error::$_" }
+            exit $code
+          }
       - name: Run the installed app
         shell: pwsh
         run: |
           $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
-          autoapply --version
-          autoapply doctor
-          if (-not (Test-Path "$env:USERPROFILE\autoapply\config\config.yaml")) { exit 1 }
+          foreach ($cmd in @("--version", "doctor")) {
+            $out = autoapply $cmd 2>&1 | Out-String
+            Write-Output $out
+            if ($LASTEXITCODE -ne 0) {
+              ($out -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 15) |
+                ForEach-Object { Write-Output "::error::autoapply ${cmd}: $_" }
+              exit 1
+            }
+          }
+          if (-not (Test-Path "$env:USERPROFILE\autoapply\config\config.yaml")) {
+            Write-Output "::error::workspace config.yaml was not created"; exit 1
+          }
 
   publish:
     needs: [smoke-linux, smoke-windows]
