@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>Acme - Data Science Intern</title>
+<style>
+  .field { margin: 8px 0; } #opts { border: 1px solid #ccc; } #opts li { cursor: pointer; }
+  #pref-wrap { display: none; }
+</style>
+</head>
+<body>
+<!-- Offline imitation of a Lever application form, used by tests/test_e2e_lever.py -->
+<form id="application-form">
+  <div class="field"><label for="resume">Resume/CV ✱</label>
+    <input type="file" id="resume" name="resume" required></div>
+  <div class="field" id="pref-wrap"><label for="pref">Preferred name ✱</label>
+    <input id="pref" name="preferred"></div>
+  <div class="field"><label for="name">Full name ✱</label><input id="name" name="name" required></div>
+  <div class="field"><label for="email">Email ✱</label><input id="email" name="email" type="email" required></div>
+  <div class="field"><label for="phone">Phone</label><input id="phone" name="phone"></div>
+  <div class="field"><label for="org">Current company</label><input id="org" name="org"></div>
+  <div class="field"><label for="li">LinkedIn URL</label><input id="li" name="urls[LinkedIn]"></div>
+  <div class="field"><label for="gh">GitHub URL</label><input id="gh" name="urls[GitHub]"></div>
+
+  <div class="field"><label id="loc-label">Location ✱</label>
+    <input id="loc" role="combobox" aria-labelledby="loc-label" aria-autocomplete="list">
+    <ul id="opts" hidden></ul></div>
+
+  <div class="field"><label for="auth">Are you legally authorized to work in the United States? ✱</label>
+    <select id="auth" name="cards[auth]" required>
+      <option value="">Select...</option><option value="y">Yes</option><option value="n">No</option>
+    </select></div>
+  <div class="field"><label for="sp">Will you now or in the future require visa sponsorship? ✱</label>
+    <select id="sp" name="cards[sp]" required>
+      <option value="">Select...</option><option value="y">Yes</option><option value="n">No</option>
+    </select></div>
+
+  <fieldset class="field"><legend>Are you willing to relocate? ✱</legend>
+    <label><input type="radio" name="reloc" value="1" required> Yes</label>
+    <label><input type="radio" name="reloc" value="0"> No</label>
+  </fieldset>
+
+  <div class="field"><label for="essay">Why do you want to work at Acme? Tell us about a project you are proud of. ✱</label>
+    <textarea id="essay" name="cards[essay]" required></textarea></div>
+
+  <div class="field"><label for="gender">Gender</label>
+    <select id="gender" name="eeo[gender]">
+      <option value="">Select...</option><option>Male</option><option>Female</option>
+      <option value="decline">Decline to self-identify</option>
+    </select></div>
+
+  <div class="field"><label><input type="checkbox" id="cert" required> I certify that the information above is accurate ✱</label></div>
+
+  <button type="submit" id="btn-submit">Submit application</button>
+</form>
+<script>
+  const places = ["Miami, Florida, United States", "Miami Beach, Florida, United States", "Miami, Oklahoma, United States"];
+  const loc = document.getElementById("loc"), opts = document.getElementById("opts");
+  const render = () => {
+    const q = loc.value.toLowerCase().split(",")[0].trim();
+    opts.innerHTML = "";
+    places.filter(p => p.toLowerCase().startsWith(q)).forEach(p => {
+      const li = document.createElement("li"); li.setAttribute("role", "option"); li.textContent = p;
+      li.onclick = () => { loc.value = ""; loc.dataset.chosen = p; loc.placeholder = p; opts.hidden = true; };
+      opts.appendChild(li);
+    });
+    opts.hidden = !opts.children.length;
+  };
+  loc.addEventListener("input", render);
+  loc.addEventListener("click", render);
+  // Imitates Lever: resume parsing autofills fields and reveals new ones.
+  document.getElementById("resume").addEventListener("change", () => {
+    setTimeout(() => {
+      document.getElementById("phone").value = "+1 305 555 0100";
+      document.getElementById("pref-wrap").style.display = "block";
+      document.getElementById("pref").required = true;
+    }, 300);
+  });
+  document.getElementById("application-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    if (!loc.dataset.chosen) { alert("location missing"); return; }
+    window.location.href = "thanks.html";
+  });
+</script>
+</body>
+</html>

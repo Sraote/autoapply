@@ -1,0 +1,80 @@
+# profile_data.yaml — the authoritative source for everything autoapply types into a form.
+# Copy to config/profile_data.yaml (git-ignored) and fill in. Values here always win over
+# anything parsed from your resume JSON, LinkedIn export or GitHub.
+
+personal:
+  first_name: Jane
+  last_name: Doe
+  preferred_name: null          # e.g. "Jay"; used for "Preferred name" fields
+  email: jane.doe@example.com
+  phone: "+1 305 555 0100"
+  pronouns: null                # e.g. "she/her"; left blank on forms if null
+  location:
+    city: Miami
+    state: FL
+    country: United States
+    postal_code: "33101"
+
+links:
+  linkedin: https://www.linkedin.com/in/janedoe
+  github: https://github.com/janedoe
+  portfolio: null
+  other: {}                     # e.g. { Kaggle: https://kaggle.com/janedoe }
+
+education:                      # first entry = primary (used for School/Degree/Major/GPA)
+  - school: University of Example
+    degree: Bachelor of Science
+    major: Data Science
+    minor: null
+    gpa: 3.7                    # null → GPA fields go to a human prompt if required
+    gpa_scale: 4.0
+    start: "2023-08"            # YYYY-MM
+    graduation: "2027-05"       # YYYY-MM
+    coursework: [Machine Learning, Databases, Statistical Learning]
+
+experience:
+  - company: Example Labs
+    title: Data Analyst Intern
+    location: Remote
+    start: "2025-06"
+    end: "2025-08"              # null + current: true for an ongoing role
+    current: false
+    highlights:
+      - Built a forecasting pipeline in Python that cut reporting time by 40%
+
+projects:
+  - name: example-project
+    url: https://github.com/janedoe/example-project
+    description: One-line summary used if a form asks for a project link
+    technologies: [Python, PyTorch]
+
+skills: [Python, SQL, pandas, scikit-learn, PyTorch, Git, Linux]
+
+work_authorization:
+  authorized_to_work_us: true
+  requires_sponsorship_now: false
+  requires_sponsorship_future: false
+
+# Voluntary self-identification. Use the token "decline" to pick each form's
+# "I don't wish to answer" option, or write your answer as it appears on forms.
+eeoc:
+  gender: decline
+  race_ethnicity: decline
+  hispanic_latino: decline
+  veteran_status: decline
+  disability_status: decline
+
+preferences:
+  earliest_start_date: "2027-06-01"
+  willing_to_relocate: true
+  salary_expectation: null      # null = ALWAYS ask you (never guessed)
+
+# Reusable answers for recurring custom questions. `pattern` is a case-insensitive
+# regex matched against the field's label. Checked BEFORE built-in field rules.
+answers:
+  - pattern: "how did you (hear|learn) about"
+    answer: "Company careers page"
+  - pattern: "(18|eighteen) years of age or older|at least 18"
+    answer: "Yes"
+  - pattern: "previously (been )?(employed|worked) (by|for|at)"
+    answer: "No"

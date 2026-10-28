@@ -1,0 +1,68 @@
+# config.yaml — runtime behavior. Copy to config/config.yaml (git-ignored).
+# Relative paths resolve against the repository root.
+
+search:
+  include_titles:               # posting title must contain one of these (case-insensitive)
+    - software engineer intern
+    - software engineering intern
+    - data science intern
+    - data scientist intern
+    - machine learning intern
+    - data analyst intern
+    - junior machine learning engineer
+    - junior data scientist
+    - new grad
+    - entry level
+  exclude_titles:               # whole-word match; any hit rejects the posting
+    - senior
+    - sr
+    - staff
+    - principal
+    - lead
+    - manager
+    - director
+    - phd
+  locations: [Miami, Florida, FL, New York, Remote]   # empty list = any location
+  allow_remote: true
+  max_posting_age_days: 30
+  sources:
+    # Greenhouse board token = the slug in boards.greenhouse.io/<token>
+    # or job-boards.greenhouse.io/<token>. Verify each one in a browser first.
+    greenhouse_boards: []       # e.g. [somecompany, anothercompany]
+    # Lever company slug = the slug in jobs.lever.co/<company>
+    lever_companies: []
+
+browser:
+  headless: false               # override per run with --headless / --headed
+  channel: null                 # null = bundled Chromium; or "chrome" / "msedge"
+  executable_path: null         # e.g. /usr/bin/chromium on Arch (skips the Playwright download)
+  slow_mo_ms: 75
+  default_timeout_ms: 20000
+  user_data_dir: data/browser-profile   # persistent cookies/logins (git-ignored)
+
+rate_limits:
+  max_applications_per_run: 10
+  min_delay_seconds: 45         # random pause between applications
+  max_delay_seconds: 120
+  max_per_company_per_day: 2
+
+automation:
+  require_submit_confirmation: true   # you review every form before it is submitted
+  dry_run: false                      # fill forms but never submit
+  ask_on_optional_unknown: false      # true = also prompt for optional fields with no mapping
+  hitl_timeout_seconds: 0             # 0 = wait forever; >0 = mark pending_input and stop the run
+  screenshot_on_failure: true
+
+notifications:
+  desktop: true                 # libnotify/DBus on Linux, toast on Windows
+  sound: true
+
+paths:
+  profile: config/profile_data.yaml
+  resume_pdf: data/private/resume.pdf
+  resume_json: null             # e.g. data/private/resume.json (JSON Resume schema)
+  linkedin_export: null         # e.g. data/private/linkedin  (folder or .zip)
+  answers_learned: data/answers_learned.yaml
+  user_profile_out: data/user_profile.json
+  database: data/autoapply.db
+  logs_dir: data/logs

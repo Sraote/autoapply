@@ -1,0 +1,120 @@
+# autoapply
+
+A human-in-the-loop job application assistant for internships and entry-level software/data roles.
+It finds postings on public ATS job boards, lets you pick which ones to apply to, fills the forms
+from one normalized profile, and **stops and asks you** whenever an answer isn't something you've
+already told it — essays, unfamiliar dropdowns, salary, consents, CAPTCHAs.
+
+Runs on **Windows 11** and **Arch Linux** (Wayland/Hyprland or X11). Python 3.11+, `uv`, Playwright.
+
+```
+profile_data.yaml ─┐
+resume.pdf/.json ──┼─► profile build ─► user_profile.json ─┐
+LinkedIn export ───┤                                       │
+GitHub ────────────┘                                       ▼
+Greenhouse/Lever ──► jobs fetch ─► SQLite ─► jobs select ─► run ─► Playwright + ATS adapter
+  board APIs           (filters)   tracker    (Textual TUI)          │
+                                                                    ├─ known field → fill
+                                                                    ├─ unknown / essay / CAPTCHA → ping you, wait
+                                                                    └─ review → submit → verify → log
+```
+
+## Quick start
+
+```bash
+# Arch
+./scripts/setup_arch.sh
+# Windows 11 (PowerShell, from repo root)
+powershell -ExecutionPolicy Bypass -File .\scripts\setup_windows.ps1
+```
+
+Then:
+
+```bash
+# 1. fill in config/profile_data.yaml and config/config.yaml; drop your resume at data/private/resume.pdf
+uv run autoapply profile build          # → data/user_profile.json
+uv run autoapply jobs fetch             # pull + filter postings from configured boards
+uv run autoapply jobs add <url> --company Acme --role "Data Science Intern"   # or add one by hand
+uv run autoapply jobs select            # check/uncheck in the TUI (space, a, n, c to confirm)
+uv run autoapply run --dry-run -n 1     # fill one form, never submit — do this first
+uv run autoapply run                    # headed by default; --headless to run in the background
+uv run autoapply resume                 # finish jobs parked as pending_input (always headed)
+uv run autoapply jobs list -s applied   # tracker
+uv run autoapply log <job_id>           # per-application event log
+uv run autoapply doctor                 # environment check
+```
+
+## How the pauses work
+
+| Situation | What happens |
+|---|---|
+| Field matches a rule in `field_mapper.py` or a saved answer | Filled automatically |
+| Required field with no matching data (essays, custom questions) | Sound + desktop notification, browser raised, terminal prompt. Answer, pick an option number, `:b` to fill it in the browser yourself, `:s` skip field, `:x` skip job |
+| Profile value doesn't match any dropdown option *uniquely* | Treated as unknown → prompt (never "closest guess") |
+| Salary | Always asked unless you set `preferences.salary_expectation` |
+| Required checkbox (consent, attestation) | Always asked |
+| CAPTCHA / Cloudflare / hCaptcha | Headed: you solve it, press Enter. Headless: job → `pending_input`, run continues |
+| Before submit | Summary table of everything filled; you choose submit / click it yourself / abort |
+| Portal with no adapter (Workday, Ashby, Taleo…) | Page opens for you to apply by hand; you record the outcome |
+
+Answers you type can be saved (`data/answers_learned.yaml`) and are reused for identical questions.
+
+## Design choices worth knowing
+
+- **No stealth / fingerprint spoofing.** The browser is a normal persistent Chromium profile at
+  human pace, and every bot check goes to you. Evasion plugins are the part of these tools most
+  likely to get accounts flagged, and they'd conflict with the "never bypass a CAPTCHA" rule.
+- **Never guess.** Mapping rules only ever return data you supplied; ambiguity → pause.
+- **Review before submit** is on by default (`automation.require_submit_confirmation`).
+- **Public APIs only** for discovery (Greenhouse and Lever job-board APIs). LinkedIn data comes
+  from your official data export; nothing scrapes LinkedIn.
+- Respect each site's terms and rate limits (`rate_limits` in config). Applying selectively
+  beats volume anyway.
+
+## Repository layout
+
+```
+autoapply/
+├── .github/workflows/ci.yml      # lint + tests on Ubuntu and Windows, gitleaks scan
+├── .gitignore                    # security-first: resumes, DBs, sessions, real configs
+├── .gitattributes                # LF for .sh/.py, CRLF for .ps1
+├── .pre-commit-config.yaml       # gitleaks + "no resumes/DBs/configs" guard
+├── .env.example
+├── pyproject.toml                # uv project, entry point `autoapply`
+├── config/
+│   ├── config.example.yaml       # search filters, rate limits, browser, notifications
+│   └── profile_data.example.yaml # personal info, education, EEOC, work auth, saved answers
+├── data/                         # git-ignored runtime data (see data/README.md)
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── SETUP.md                  # Arch + Windows step by step
+│   └── ADAPTERS.md               # writing a new ATS adapter
+├── scripts/
+│   ├── setup_arch.sh
+│   └── setup_windows.ps1
+├── src/autoapply/
+│   ├── cli.py                    # Typer commands
+│   ├── config.py                 # pydantic config + cross-platform path resolution
+│   ├── notify.py                 # desktop notification + sound (Linux/Windows)
+│   ├── profile/                  # models, parser (YAML/JSON Resume/LinkedIn/PDF/GitHub), saved answers
+│   ├── store/db.py               # SQLite tracker + application log
+│   ├── jobs/                     # Greenhouse/Lever sources, filters
+│   ├── tui/queue.py              # Textual selection queue
+│   └── automation/
+│       ├── browser.py            # persistent Chromium, Wayland flags
+│       ├── fields.py             # generic form introspection (labels, options, required)
+│       ├── field_mapper.py       # profile → field rules, strict option matching
+│       ├── challenges.py         # CAPTCHA/Cloudflare detection
+│       ├── hitl.py               # all human pauses
+│       ├── runner.py             # queue loop, rate limits, failure screenshots
+│       └── adapters/             # base template, greenhouse, lever, manual fallback
+└── tests/                        # unit tests + offline end-to-end Lever form in real Chromium
+```
+
+## Status
+
+Greenhouse and Lever adapters are the reference implementations. ATS markup changes over time,
+so do a `--dry-run` on a live posting after setup and after upgrades. See `docs/ADAPTERS.md` to add
+Ashby, Workday and others.
+
+MIT licensed.

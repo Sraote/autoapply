@@ -1,0 +1,94 @@
+# =====================================================================
+# SECURITY FIRST: this repo is public. Personal data never leaves your machine.
+# Rule of thumb: real data lives in data/ or config/*.yaml (non-example) — both ignored.
+# =====================================================================
+
+# --- Personal profile & configuration (only *.example.yaml are committed) ---
+config/*.yaml
+config/*.yml
+!config/*.example.yaml
+user_profile.json
+profile_data.yaml
+answers_learned.yaml
+
+# --- Everything under data/ (resumes, DB, browser profile, logs, screenshots) ---
+data/*
+!data/.gitkeep
+!data/README.md
+
+# --- Resumes / documents anywhere in the tree (fixtures must be explicitly allowed) ---
+*.pdf
+*.docx
+*.doc
+*.odt
+*.rtf
+!tests/fixtures/**/*.pdf
+
+# --- LinkedIn / data exports ---
+*linkedin*export*
+Basic_LinkedInDataExport_*
+*.zip
+
+# --- Secrets & credentials ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets.*
+credentials*.json
+token*.json
+*.token
+.netrc
+.git-credentials
+
+# --- Browser sessions / cookies / storage state ---
+browser-profile/
+user-data-dir/
+storage_state*.json
+*cookies*.json
+*.har
+playwright/.auth/
+
+# --- Local databases ---
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# --- Logs, screenshots, traces (can contain filled-in personal data) ---
+logs/
+*.log
+screenshots/
+*.png
+!docs/**/*.png
+trace*.zip
+test-results/
+
+# --- Python / uv ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.python-version
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Editors / OS ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,22 @@
+# Install once:  uv run pre-commit install   (or: pipx install pre-commit)
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: local
+    hooks:
+      - id: no-personal-documents
+        name: Block resumes, databases and real configs
+        language: fail
+        entry: "Personal data must not be committed (resume, DB, or non-example config)."
+        files: '(\.(pdf|docx|db|sqlite3?)$|^config/(?!.*\.example\.ya?ml$).*\.ya?ml$|^data/(?!\.gitkeep|README\.md))'
+        exclude: '^tests/fixtures/'
