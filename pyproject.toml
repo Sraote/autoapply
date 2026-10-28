@@ -1,6 +1,6 @@
 [project]
 name = "autoapply"
-version = "0.1.0"
+version = "0.2.0"
 description = "Human-in-the-loop job application assistant for internships and entry-level roles."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -16,10 +16,15 @@ dependencies = [
   "textual>=0.70",
   "desktop-notifier>=5.0",
   "pypdf>=4.2",
+  "starlette>=0.37",
+  "uvicorn>=0.29",
 ]
 
 [project.scripts]
 autoapply = "autoapply.cli:app"
+
+[project.gui-scripts]
+autoapply-gui = "autoapply.gui:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "pytest-asyncio>=0.23", "ruff>=0.5"]

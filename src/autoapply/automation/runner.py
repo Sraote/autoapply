@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import random
 from collections import Counter
 from collections.abc import Iterable
@@ -33,6 +34,7 @@ class Runner:
         headless: bool,
         limit: int | None = None,
         statuses: Iterable[JobStatus] = (JobStatus.QUEUED,),
+        hitl: HumanInTheLoop | None = None,
     ):
         self.cfg = cfg
         self.profile = profile
@@ -41,17 +43,17 @@ class Runner:
         self.headless = headless
         self.limit = limit or cfg.rate_limits.max_applications_per_run
         self.statuses = tuple(statuses)
+        self.hitl = hitl  # the GUI passes its own; the CLI uses terminal prompts
 
     async def run(self) -> Counter[str]:
         summary: Counter[str] = Counter()
         jobs = self.store.list(self.statuses)[: self.limit]
         if not jobs:
-            self.console.print("Nothing to do — queue postings with `autoapply jobs select`.")
+            self.console.print("Nothing to do — queue some postings first.")
             return summary
 
-        notifier = Notifier(self.cfg.notifications)
-        hitl = HumanInTheLoop(
-            notifier,
+        hitl = self.hitl or HumanInTheLoop(
+            Notifier(self.cfg.notifications),
             self.console,
             headless=self.headless,
             timeout=self.cfg.automation.hitl_timeout_seconds,
@@ -93,6 +95,10 @@ class Runner:
                         self.headless,
                     )
                     result = await adapter_cls(ctx).run()
+                except asyncio.CancelledError:
+                    # Run stopped (GUI "Stop" or Ctrl+C): put the job back in the queue.
+                    self.store.set_status(job.job_id, JobStatus.QUEUED, "run stopped")
+                    raise
                 except HitlTimeout as exc:
                     result, stop = ApplyResult(exc.status, exc.message), True
                 except ApplicationAborted as exc:
@@ -101,7 +107,8 @@ class Runner:
                     await self._capture(page, job)
                     result = ApplyResult(JobStatus.FAILED, f"{type(exc).__name__}: {exc}")
                 finally:
-                    await page.close()
+                    with contextlib.suppress(Exception):
+                        await page.close()
 
                 self.store.set_status(job.job_id, result.status, result.message)
                 summary[str(result.status)] += 1

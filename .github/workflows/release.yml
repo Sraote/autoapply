@@ -45,6 +45,7 @@ jobs:
           mkdir -p "stage/$L" "stage/$W"
           cp dist/*.whl README.md LICENSE "stage/$L/"
           cp packaging/install.sh "stage/$L/" && chmod +x "stage/$L/install.sh"
+          cp src/autoapply/gui/static/icon.svg "stage/$L/autoapply.svg"
           cp dist/*.whl README.md LICENSE packaging/install.ps1 "stage/$W/"
           tar -C stage -czf "dist/$L.tar.gz" "$L"
           (cd stage && zip -qr "../dist/$W.zip" "$W")
@@ -74,6 +75,10 @@ jobs:
           autoapply doctor
           test -f ~/autoapply/config/config.yaml
           test -f ~/autoapply/config/profile_data.yaml
+          test -x ~/.local/bin/autoapply-gui
+          test -f ~/.local/share/applications/autoapply.desktop
+          test -f ~/.local/share/icons/hicolor/scalable/apps/autoapply.svg
+          autoapply gui --self-test
 
   smoke-windows:
     needs: build
@@ -99,8 +104,8 @@ jobs:
         shell: pwsh
         run: |
           $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
-          foreach ($cmd in @("--version", "doctor")) {
-            $out = autoapply $cmd 2>&1 | Out-String
+          foreach ($cmd in @("--version", "doctor", "gui --self-test")) {
+            $out = Invoke-Expression "autoapply $cmd 2>&1" | Out-String
             Write-Output $out
             if ($LASTEXITCODE -ne 0) {
               ($out -split "`r?`n" | Where-Object { $_.Trim() } | Select-Object -Last 15) |
@@ -108,8 +113,13 @@ jobs:
               exit 1
             }
           }
-          if (-not (Test-Path "$env:USERPROFILE\autoapply\config\config.yaml")) {
-            Write-Output "::error::workspace config.yaml was not created"; exit 1
+          $expect = @(
+            "$env:USERPROFILE\autoapply\config\config.yaml",
+            "$env:USERPROFILE\.local\bin\autoapply-gui.exe",
+            (Join-Path ([Environment]::GetFolderPath("Programs")) "autoapply.lnk")
+          )
+          foreach ($path in $expect) {
+            if (-not (Test-Path $path)) { Write-Output "::error::missing after install: $path"; exit 1 }
           }
 
   publish:

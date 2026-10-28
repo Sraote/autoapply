@@ -3,12 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import platform
-import shutil
-import subprocess
 import sys
-from importlib.resources import files
 from pathlib import Path
 
 import typer
@@ -17,7 +12,7 @@ from rich.markup import escape
 from rich.table import Table
 
 from . import __version__
-from .config import WORKSPACE_MARKER, AppConfig, find_project_root, load_config
+from .config import AppConfig, find_project_root, load_config
 from .store.db import JobStatus, JobStore
 
 
@@ -71,21 +66,17 @@ def init(
     here: bool = typer.Option(False, "--here", help="Create the workspace in the current directory"),
 ) -> None:
     """Create a workspace: config/config.yaml, config/profile_data.yaml and data/."""
+    from .workspace import create_workspace
+
     root = Path.cwd().resolve() if here else find_project_root()
-    (root / "config").mkdir(parents=True, exist_ok=True)
-    (root / "data" / "private").mkdir(parents=True, exist_ok=True)
-    (root / WORKSPACE_MARKER).touch()
-    templates = files("autoapply") / "templates"
-    for name in ("config", "profile_data"):
-        dst = root / "config" / f"{name}.yaml"
-        if dst.exists():
-            console.print(f"[dim]exists[/]  {dst}")
-        else:
-            dst.write_text((templates / f"{name}.example.yaml").read_text(encoding="utf-8"), encoding="utf-8")
-            console.print(f"[green]created[/] {dst}")
+    created = create_workspace(root)
+    for path in created:
+        console.print(f"[green]created[/] {path}")
+    if not created:
+        console.print("[dim]Workspace already set up; nothing overwritten.[/]")
     console.print(
         f"\nWorkspace: [bold]{root}[/]\nNext:\n"
-        "  1. Edit config/profile_data.yaml and config/config.yaml\n"
+        "  1. Edit config/profile_data.yaml and config/config.yaml (or use `autoapply gui`)\n"
         "  2. Put your resume at data/private/resume.pdf\n"
         "  3. autoapply profile build → jobs fetch → jobs select → run --dry-run"
     )
@@ -94,45 +85,34 @@ def init(
 @app.command("install-browser")
 def install_browser() -> None:
     """Download the Chromium build this version of Playwright expects."""
-    cmd = [sys.executable, "-m", "playwright", "install", "chromium"]
-    if sys.platform.startswith("linux") and shutil.which("apt-get") and not shutil.which("pacman"):
-        cmd.append("--with-deps")  # Debian/Ubuntu only; Arch gets libraries from pacman
-    raise typer.Exit(subprocess.call(cmd))
+    from .diagnostics import install_browser as _install
+
+    raise typer.Exit(_install())
 
 
 @app.command()
 def doctor(config: Path | None = ConfigOpt) -> None:
     """Check the environment: OS, display server, browser, files."""
-    cfg = _cfg(config)
-    t = Table("Check", "Result", show_header=False)
-    t.add_row("Python", sys.version.split()[0])
-    t.add_row("Platform", f"{platform.system()} {platform.release()}")
-    if sys.platform.startswith("linux"):
-        session = (
-            "Wayland"
-            if os.environ.get("WAYLAND_DISPLAY")
-            else ("X11" if os.environ.get("DISPLAY") else "[yellow]none (headless only)[/]")
-        )
-        t.add_row("Display", session)
-        t.add_row("notify-send", "found" if shutil.which("notify-send") else "[yellow]missing[/]")
-    try:
-        from playwright.sync_api import sync_playwright
+    from .diagnostics import run_checks
 
-        with sync_playwright() as pw:
-            exe = cfg.browser.executable_path or Path(pw.chromium.executable_path)
-        ok = cfg.resolve(exe).exists() if cfg.browser.executable_path else Path(exe).exists()
-        t.add_row("Chromium", f"{exe}" if ok else "[red]missing[/] — run `autoapply install-browser`")
-    except Exception as exc:  # noqa: BLE001
-        t.add_row("Playwright", f"[red]{escape(str(exc).splitlines()[0])}[/]")
-    for label, p in (
-        ("workspace", cfg.project_root),
-        ("config.yaml", cfg.project_root / "config" / "config.yaml"),
-        ("profile_data.yaml", cfg.resolve(cfg.paths.profile)),
-        ("resume.pdf", cfg.resolve(cfg.paths.resume_pdf)),
-        ("user_profile.json", cfg.resolve(cfg.paths.user_profile_out)),
-    ):
-        t.add_row(label, "[green]ok[/]" if p.exists() else f"[yellow]missing[/] {p}")
+    t = Table("Check", "Result", show_header=False)
+    for c in run_checks(_cfg(config)):
+        color = "green" if c.ok else ("yellow" if c.warn_only else "red")
+        t.add_row(c.name, f"[{color}]{escape(c.detail)}[/]")
     console.print(t)
+
+
+@app.command()
+def gui(
+    config: Path | None = ConfigOpt,
+    no_window: bool = typer.Option(False, "--no-window", help="Only start the server; print its URL"),
+    port: int = typer.Option(0, "--port", help="Local port (default: any free port)"),
+    self_test: bool = typer.Option(False, "--self-test", help="Start, check the UI responds, exit"),
+) -> None:
+    """Open the desktop app."""
+    from .gui import launch
+
+    raise typer.Exit(launch(config=config, open_window=not no_window, port=port, self_test=self_test))
 
 
 # ---------------------------------------------------------------- profile

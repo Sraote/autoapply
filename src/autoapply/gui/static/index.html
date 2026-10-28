@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>autoapply</title>
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <div class="brand"><img src="/static/icon.svg" alt="" width="28" height="28"><span>autoapply</span></div>
+    <button class="nav" data-view="jobs" aria-current="page">Postings</button>
+    <button class="nav" data-view="run">Apply <span class="badge" id="nav-needs" hidden></span></button>
+    <button class="nav" data-view="profile">Your profile</button>
+    <button class="nav" data-view="settings">Settings</button>
+    <div class="rail-foot">
+      <div id="run-indicator" class="run-indicator" hidden>Applying…</div>
+      <button class="link" id="quit">Quit autoapply</button>
+    </div>
+  </nav>
+
+  <main>
+    <!-- Postings -->
+    <section class="view" id="view-jobs">
+      <header class="view-head">
+        <div>
+          <h1>Postings</h1>
+          <p class="lede">Tick the postings you want to apply to. Ticked ones are queued for the next run.</p>
+        </div>
+        <div class="actions">
+          <button id="fetch-jobs">Find new postings</button>
+          <button class="primary" id="open-add">Add a posting</button>
+        </div>
+      </header>
+      <div class="toolbar">
+        <label>Show
+          <select id="status-filter">
+            <option value="active">Not yet applied</option>
+            <option value="all">Everything</option>
+            <option value="discovered">To review</option>
+            <option value="queued">Queued</option>
+            <option value="pending_input">Waiting on you</option>
+            <option value="applied">Applied</option>
+            <option value="failed">Failed</option>
+            <option value="skipped">Skipped</option>
+          </select>
+        </label>
+        <span class="spacer"></span>
+        <span id="queued-count" class="muted"></span>
+        <button class="primary" id="go-run">Apply to queued</button>
+      </div>
+      <div class="table-wrap">
+        <table class="jobs">
+          <thead><tr><th class="c-check">Queue</th><th>Company</th><th>Role</th><th>Location</th><th>Portal</th><th>Status</th><th></th></tr></thead>
+          <tbody id="jobs-body"></tbody>
+        </table>
+        <div class="empty" id="jobs-empty" hidden></div>
+      </div>
+    </section>
+
+    <!-- Apply -->
+    <section class="view" id="view-run" hidden>
+      <header class="view-head">
+        <div>
+          <h1>Apply</h1>
+          <p class="lede">autoapply fills in what it knows and stops to ask you about everything else. You review each form before it's sent.</p>
+        </div>
+      </header>
+      <div class="run-grid">
+        <form class="panel" id="run-form">
+          <fieldset>
+            <legend>Which postings</legend>
+            <label class="choice"><input type="radio" name="mode" value="queued" checked> Queued postings <span class="muted" id="count-queued"></span></label>
+            <label class="choice"><input type="radio" name="mode" value="resume"> Postings waiting on you <span class="muted" id="count-pending"></span></label>
+          </fieldset>
+          <label class="choice"><input type="checkbox" id="opt-visible" checked> Show the browser while applying</label>
+          <label class="choice"><input type="checkbox" id="opt-dry"> Practice run: fill forms, don't submit</label>
+          <label class="field">At most <input type="number" id="opt-limit" min="1" max="100" value="10"> applications</label>
+          <div class="run-buttons">
+            <button class="primary" type="submit" id="start-run">Start applying</button>
+            <button type="button" id="stop-run" hidden>Stop</button>
+          </div>
+          <p class="run-status" id="run-status" role="status"></p>
+        </form>
+        <div class="panel log-panel">
+          <div class="log-head"><h2>Activity</h2><button class="link" id="clear-log">Clear</button></div>
+          <ol class="log" id="log" aria-live="polite"></ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- Profile -->
+    <section class="view" id="view-profile" hidden>
+      <header class="view-head">
+        <div>
+          <h1>Your profile</h1>
+          <p class="lede">Everything autoapply types into a form comes from here. Anything it can't find, it asks you.</p>
+        </div>
+      </header>
+      <div class="panel">
+        <h2>Resume</h2>
+        <p id="resume-status" class="muted">Checking…</p>
+        <label class="file-button">Choose a PDF…<input type="file" id="resume-file" accept="application/pdf,.pdf"></label>
+      </div>
+      <div class="panel">
+        <div class="editor-head">
+          <h2>Details</h2>
+          <span class="muted path" id="profile-path"></span>
+        </div>
+        <textarea id="profile-text" class="editor" spellcheck="false" aria-label="profile_data.yaml"></textarea>
+        <pre class="form-error" id="profile-error" hidden></pre>
+        <div class="row">
+          <button class="primary" id="save-profile">Save details</button>
+          <span class="spacer"></span>
+          <label class="choice"><input type="checkbox" id="build-github" checked> Include my GitHub projects</label>
+          <button id="build-profile">Rebuild profile</button>
+        </div>
+        <div class="summary" id="profile-summary" hidden></div>
+      </div>
+    </section>
+
+    <!-- Settings -->
+    <section class="view" id="view-settings" hidden>
+      <header class="view-head">
+        <div>
+          <h1>Settings</h1>
+          <p class="lede">Job boards, filters, pacing and browser options.</p>
+        </div>
+      </header>
+      <div class="panel">
+        <div class="editor-head">
+          <h2>Configuration</h2>
+          <span class="muted path" id="config-path"></span>
+        </div>
+        <textarea id="config-text" class="editor" spellcheck="false" aria-label="config.yaml"></textarea>
+        <pre class="form-error" id="config-error" hidden></pre>
+        <div class="row"><button class="primary" id="save-config">Save settings</button></div>
+      </div>
+      <div class="panel">
+        <div class="editor-head"><h2>System check</h2><button class="link" id="recheck">Check again</button></div>
+        <table class="checks"><tbody id="checks-body"></tbody></table>
+        <div class="row"><button id="install-browser">Download Chromium</button><span class="muted" id="version"></span></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- The moment autoapply needs you -->
+<dialog id="prompt" class="prompt" aria-labelledby="prompt-question">
+  <form method="dialog" id="prompt-form">
+    <div class="prompt-bar" aria-hidden="true"></div>
+    <div class="prompt-body">
+      <p class="prompt-title" id="prompt-title"></p>
+      <p class="prompt-job" id="prompt-job"></p>
+      <h2 class="prompt-question" id="prompt-question"></h2>
+      <p class="prompt-reason" id="prompt-reason"></p>
+      <div id="prompt-content"></div>
+      <div class="prompt-actions" id="prompt-actions"></div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="add-dialog" class="plain">
+  <form id="add-form">
+    <h2>Add a posting</h2>
+    <label class="field">Posting URL <input name="url" type="url" required placeholder="https://jobs.lever.co/company/…"></label>
+    <label class="field">Company <input name="company" required></label>
+    <label class="field">Role <input name="role" required></label>
+    <label class="field">Location <input name="location" placeholder="Optional"></label>
+    <pre class="form-error" id="add-error" hidden></pre>
+    <div class="row end"><button type="button" id="add-cancel">Cancel</button><button class="primary" type="submit">Add and queue</button></div>
+  </form>
+</dialog>
+
+<dialog id="history-dialog" class="plain wide">
+  <h2 id="history-title"></h2>
+  <ol class="log" id="history-log"></ol>
+  <div class="row end"><button id="history-close">Close</button></div>
+</dialog>
+
+<div class="toast" id="toast" role="alert" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -76,6 +76,8 @@ class Job:
 
 
 class JobStore:
+    on_change: Callable[[str, JobStatus], None] | None = None  # set by the GUI for live updates
+
     def __init__(self, path: Path):
         path.parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(path)
@@ -152,6 +154,8 @@ class JobStore:
                 (str(status), now, str(status), now, note, job_id),
             )
         self.log(job_id, "status", str(status) + (f": {note}" if note else ""))
+        if self.on_change:
+            self.on_change(job_id, status)
 
     def count_applied_today(self, company: str) -> int:
         today = datetime.now(UTC).date().isoformat()

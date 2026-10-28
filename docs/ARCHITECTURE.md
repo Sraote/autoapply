@@ -84,3 +84,19 @@ names a non-US country; "start date" rules ignore month/year sub-fields of educa
 - The persistent browser profile holds your ATS sessions: treat `data/browser-profile/` like a password.
 - No credentials are ever stored by autoapply. Sign in to ATS accounts yourself in headed mode; the
   persistent profile remembers it.
+
+## Desktop app (`gui/`)
+
+```
+autoapply-gui ─► uvicorn on 127.0.0.1:<random port> ─► Starlette API (+ static UI)
+      │                    ▲            │ Server-Sent Events (log lines, prompts, job status)
+      └─► Edge/Chrome/Chromium --app window (own profile; closing it quits the app)
+```
+
+- The GUI reuses the same `Runner` and adapters as the CLI. Only the human-in-the-loop layer
+  differs: `GuiHumanInTheLoop` turns each pause into a prompt event and awaits an asyncio future
+  that the dialog's answer resolves.
+- Stopping a run cancels its task; the posting in progress returns to `queued`.
+- Security: loopback-only bind, a random per-launch token on every API call, Host-header check
+  against DNS rebinding, and all page content rendered with `textContent` (posting titles come
+  from external job boards).

@@ -42,12 +42,30 @@ fi
 echo "==> Creating your workspace (~/autoapply)"
 autoapply init
 
+echo "==> Adding autoapply to your app launcher"
+ICON_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/scalable/apps"
+APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
+mkdir -p "$ICON_DIR" "$APP_DIR"
+cp "$HERE/autoapply.svg" "$ICON_DIR/autoapply.svg"
+cat > "$APP_DIR/autoapply.desktop" <<DESKTOP
+[Desktop Entry]
+Type=Application
+Name=autoapply
+GenericName=Job application assistant
+Comment=Apply to internships and entry-level roles, pausing for your input
+Exec=$BIN/autoapply-gui
+Icon=autoapply
+Terminal=false
+Categories=Office;Utility;
+StartupWMClass=autoapply
+DESKTOP
+command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$APP_DIR" >/dev/null 2>&1 || true
+
 cat <<EOF
 
-Installed: $BIN/autoapply
-Open a new terminal (so PATH is updated), then:
-  1. edit ~/autoapply/config/profile_data.yaml and ~/autoapply/config/config.yaml
-  2. copy your resume to ~/autoapply/data/private/resume.pdf
-  3. autoapply doctor && autoapply profile build
-Upgrade: run a newer bundle's install.sh.   Uninstall: uv tool uninstall autoapply
+Installed. Open "autoapply" from your app launcher (or run: autoapply-gui).
+Start on the "Your profile" page: add your resume and fill in your details.
+Command line is still available: autoapply --help (open a new terminal first).
+Upgrade: run a newer bundle's install.sh.
+Uninstall: uv tool uninstall autoapply && rm "$APP_DIR/autoapply.desktop" "$ICON_DIR/autoapply.svg"
 EOF

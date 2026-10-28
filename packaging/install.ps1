@@ -39,12 +39,25 @@ Write-Host "==> Creating your workspace ($env:USERPROFILE\autoapply)" -Foregroun
 autoapply init
 if ($LASTEXITCODE -ne 0) { throw "autoapply init failed" }
 
+Write-Host "==> Adding autoapply to the Start menu and desktop" -ForegroundColor Cyan
+$gui = Join-Path $bin "autoapply-gui.exe"
+if (-not (Test-Path $gui)) { throw "autoapply-gui.exe was not installed" }
+$shell = New-Object -ComObject WScript.Shell
+$startMenu = Join-Path ([Environment]::GetFolderPath("Programs")) "autoapply.lnk"
+$desktop = Join-Path ([Environment]::GetFolderPath("Desktop")) "autoapply.lnk"
+foreach ($path in @($startMenu, $desktop)) {
+    $lnk = $shell.CreateShortcut($path)
+    $lnk.TargetPath = $gui
+    $lnk.WorkingDirectory = Join-Path $env:USERPROFILE "autoapply"
+    $lnk.Description = "Job application assistant"
+    $lnk.Save()
+}
+
 Write-Host @"
 
-Installed: $bin\autoapply.exe
-Open a NEW terminal (so PATH is updated), then:
-  1. edit $env:USERPROFILE\autoapply\config\profile_data.yaml and config.yaml
-  2. copy your resume to $env:USERPROFILE\autoapply\data\private\resume.pdf
-  3. autoapply doctor; autoapply profile build
-Upgrade: run a newer bundle's install.ps1.   Uninstall: uv tool uninstall autoapply
+Installed. Open "autoapply" from the Start menu or your desktop.
+Start on the "Your profile" page: add your resume and fill in your details.
+Command line is still available: autoapply --help (open a NEW terminal first).
+Upgrade: run a newer bundle's install.ps1.
+Uninstall: uv tool uninstall autoapply, then delete the two autoapply shortcuts.
 "@ -ForegroundColor Green
