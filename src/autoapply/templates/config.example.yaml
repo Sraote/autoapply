@@ -1,5 +1,5 @@
-# config.yaml — runtime behavior. Copy to config/config.yaml (git-ignored).
-# Relative paths resolve against the repository root.
+# config.yaml — runtime behavior. `autoapply init` copies this to config/config.yaml in your workspace.
+# Relative paths resolve against the workspace root (~/autoapply, or the repo checkout).
 
 search:
   include_titles:               # posting title must contain one of these (case-insensitive)

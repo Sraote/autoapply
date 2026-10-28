@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -85,12 +86,29 @@ class AppConfig(BaseModel):
         return path if path.is_absolute() else (self.project_root / path).resolve()
 
 
+WORKSPACE_MARKER = ".autoapply"
+
+
+def default_workspace() -> Path:
+    """~/autoapply on Linux, %USERPROFILE%\\autoapply on Windows."""
+    return Path.home() / "autoapply"
+
+
 def find_project_root(start: Path | None = None) -> Path:
+    """Locate the workspace holding config/ and data/.
+
+    Order: $AUTOAPPLY_HOME → nearest parent with a .autoapply marker or a source checkout
+    of this repo → ~/autoapply (the default for installed releases).
+    """
+    if env := os.environ.get("AUTOAPPLY_HOME"):
+        return Path(env).expanduser().resolve()
     start = (start or Path.cwd()).resolve()
     for candidate in (start, *start.parents):
-        if (candidate / "pyproject.toml").is_file() or (candidate / ".git").exists():
+        if (candidate / WORKSPACE_MARKER).exists():
             return candidate
-    return Path.cwd().resolve()
+        if (candidate / "pyproject.toml").is_file() and (candidate / "src" / "autoapply").is_dir():
+            return candidate
+    return default_workspace()
 
 
 def load_config(path: Path | None = None) -> AppConfig:

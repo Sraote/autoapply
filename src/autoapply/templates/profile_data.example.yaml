@@ -1,5 +1,5 @@
 # profile_data.yaml — the authoritative source for everything autoapply types into a form.
-# Copy to config/profile_data.yaml (git-ignored) and fill in. Values here always win over
+# `autoapply init` copies this to config/profile_data.yaml in your workspace; fill it in. Values here always win over
 # anything parsed from your resume JSON, LinkedIn export or GitHub.
 
 personal:

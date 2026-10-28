@@ -1,0 +1,110 @@
+name: release
+# Push a tag like v0.1.0 → build wheel + Linux/Windows bundles → install-test each bundle on its
+# own OS → publish a GitHub Release with the assets. Nothing is published if a smoke test fails.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to release (e.g. v0.1.0)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: astral-sh/setup-uv@v5
+      - name: Check tag matches package version
+        run: |
+          V="$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)"
+          [ "v$V" = "$TAG" ] || { echo "Tag $TAG != pyproject version $V"; exit 1; }
+      - name: Test
+        run: |
+          uv sync
+          uv run ruff check src tests
+          uv run playwright install --with-deps chromium
+          uv run pytest -q
+      - name: Build wheel and sdist
+        run: uv build
+      - name: Assemble Linux and Windows bundles
+        run: |
+          V="${TAG#v}"
+          L="autoapply-$V-linux"; W="autoapply-$V-windows"
+          mkdir -p "stage/$L" "stage/$W"
+          cp dist/*.whl README.md LICENSE "stage/$L/"
+          cp packaging/install.sh "stage/$L/" && chmod +x "stage/$L/install.sh"
+          cp dist/*.whl README.md LICENSE packaging/install.ps1 "stage/$W/"
+          tar -C stage -czf "dist/$L.tar.gz" "$L"
+          (cd stage && zip -qr "../dist/$W.zip" "$W")
+          (cd dist && sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  smoke-linux:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Install from the Linux bundle (fresh machine, no uv)
+        run: |
+          tar -xzf dist/autoapply-*-linux.tar.gz
+          cd autoapply-*-linux
+          SKIP_SYSTEM_DEPS=1 AUTOAPPLY_SKIP_BROWSER=1 ./install.sh
+      - name: Run the installed app
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          autoapply --version
+          autoapply doctor
+          test -f ~/autoapply/config/config.yaml
+          test -f ~/autoapply/config/profile_data.yaml
+
+  smoke-windows:
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Install from the Windows bundle (fresh machine, no uv)
+        shell: pwsh
+        run: |
+          Expand-Archive (Get-ChildItem dist\autoapply-*-windows.zip).FullName -DestinationPath .
+          $dir = (Get-ChildItem -Directory autoapply-*-windows).FullName
+          powershell -ExecutionPolicy Bypass -File "$dir\install.ps1" -SkipBrowser
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run the installed app
+        shell: pwsh
+        run: |
+          $env:Path = "$env:USERPROFILE\.local\bin;$env:Path"
+          autoapply --version
+          autoapply doctor
+          if (-not (Test-Path "$env:USERPROFILE\autoapply\config\config.yaml")) { exit 1 }
+
+  publish:
+    needs: [smoke-linux, smoke-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: actions/download-artifact@v4
+        with: { name: dist, path: dist }
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES=".github/release-notes/$TAG.md"
+          [ -f "$NOTES" ] || NOTES=/dev/null
+          gh release create "$TAG" dist/* --title "autoapply $TAG" --notes-file "$NOTES" --verify-tag

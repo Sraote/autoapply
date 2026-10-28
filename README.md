@@ -19,7 +19,25 @@ Greenhouse/Lever ──► jobs fetch ─► SQLite ─► jobs select ─► ru
                                                                     └─ review → submit → verify → log
 ```
 
-## Quick start
+## Install
+
+Download the bundle for your OS from [Releases](../../releases/latest) and run its installer.
+Python isn't required; the installer brings [uv](https://docs.astral.sh/uv/), which brings Python.
+
+```bash
+# Linux (Arch or any distro)
+tar xzf autoapply-*-linux.tar.gz && cd autoapply-*-linux && ./install.sh
+```
+```powershell
+# Windows 11
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+This installs the `autoapply` command, downloads Chromium and creates your workspace in
+`~/autoapply` (`%USERPROFILE%\autoapply`). Set `AUTOAPPLY_HOME` to put it elsewhere, or run
+`autoapply init --here` inside any folder.
+
+## Quick start (from source)
 
 ```bash
 # Arch
@@ -75,23 +93,26 @@ Answers you type can be saved (`data/answers_learned.yaml`) and are reused for i
 
 ```
 autoapply/
-├── .github/workflows/ci.yml      # lint + tests on Ubuntu and Windows, gitleaks scan
+├── .github/workflows/
+│   ├── ci.yml                    # lint + tests on Ubuntu and Windows, gitleaks scan
+│   └── release.yml               # tag v* → build, install-test on both OSes, publish Release
 ├── .gitignore                    # security-first: resumes, DBs, sessions, real configs
 ├── .gitattributes                # LF for .sh/.py, CRLF for .ps1
 ├── .pre-commit-config.yaml       # gitleaks + "no resumes/DBs/configs" guard
 ├── .env.example
 ├── pyproject.toml                # uv project, entry point `autoapply`
-├── config/
-│   ├── config.example.yaml       # search filters, rate limits, browser, notifications
-│   └── profile_data.example.yaml # personal info, education, EEOC, work auth, saved answers
+├── config/                       # created by `autoapply init` (git-ignored)
 ├── data/                         # git-ignored runtime data (see data/README.md)
 ├── docs/
 │   ├── ARCHITECTURE.md
 │   ├── SETUP.md                  # Arch + Windows step by step
 │   └── ADAPTERS.md               # writing a new ATS adapter
-├── scripts/
+├── scripts/                      # dev setup from a source checkout
 │   ├── setup_arch.sh
 │   └── setup_windows.ps1
+├── packaging/                    # installers shipped inside the release bundles
+│   ├── install.sh
+│   └── install.ps1
 ├── src/autoapply/
 │   ├── cli.py                    # Typer commands
 │   ├── config.py                 # pydantic config + cross-platform path resolution
@@ -100,6 +121,7 @@ autoapply/
 │   ├── store/db.py               # SQLite tracker + application log
 │   ├── jobs/                     # Greenhouse/Lever sources, filters
 │   ├── tui/queue.py              # Textual selection queue
+│   ├── templates/                # config.example.yaml, profile_data.example.yaml
 │   └── automation/
 │       ├── browser.py            # persistent Chromium, Wayland flags
 │       ├── fields.py             # generic form introspection (labels, options, required)

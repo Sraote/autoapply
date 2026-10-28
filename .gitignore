@@ -3,10 +3,10 @@
 # Rule of thumb: real data lives in data/ or config/*.yaml (non-example) — both ignored.
 # =====================================================================
 
-# --- Personal profile & configuration (only *.example.yaml are committed) ---
+# --- Personal profile & configuration (templates live in src/autoapply/templates) ---
+.autoapply
 config/*.yaml
 config/*.yml
-!config/*.example.yaml
 user_profile.json
 profile_data.yaml
 answers_learned.yaml

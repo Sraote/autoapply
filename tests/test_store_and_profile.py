@@ -24,7 +24,7 @@ def test_store_lifecycle(tmp_path):
 
 
 def test_example_config_loads():
-    cfg = load_config(ROOT / "config" / "config.example.yaml")
+    cfg = load_config(ROOT / "src" / "autoapply" / "templates" / "config.example.yaml")
     assert cfg.automation.require_submit_confirmation is True
     assert cfg.resolve("data/x.db") == (ROOT / "data" / "x.db").resolve()
 

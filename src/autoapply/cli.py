@@ -6,7 +6,9 @@ import asyncio
 import os
 import platform
 import shutil
+import subprocess
 import sys
+from importlib.resources import files
 from pathlib import Path
 
 import typer
@@ -14,7 +16,8 @@ from rich.console import Console
 from rich.markup import escape
 from rich.table import Table
 
-from .config import AppConfig, find_project_root, load_config
+from . import __version__
+from .config import WORKSPACE_MARKER, AppConfig, find_project_root, load_config
 from .store.db import JobStatus, JobStore
 
 app = typer.Typer(no_args_is_help=True, help="Human-in-the-loop job application assistant.")
@@ -25,6 +28,19 @@ app.add_typer(jobs_app, name="jobs")
 console = Console()
 
 ConfigOpt = typer.Option(None, "--config", "-c", help="Path to config.yaml")
+
+
+def _version(value: bool) -> None:
+    if value:
+        console.print(f"autoapply {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(False, "--version", callback=_version, is_eager=True),
+) -> None:
+    """Human-in-the-loop job application assistant."""
 
 
 def _cfg(path: Path | None) -> AppConfig:
@@ -39,22 +55,37 @@ def _store(cfg: AppConfig) -> JobStore:
 
 
 @app.command()
-def init() -> None:
-    """Create config/config.yaml and config/profile_data.yaml from the examples."""
-    root = find_project_root()
-    for name in ("config", "profile_data"):
-        src, dst = root / "config" / f"{name}.example.yaml", root / "config" / f"{name}.yaml"
-        if dst.exists():
-            console.print(f"[dim]exists[/] {dst.relative_to(root)}")
-        else:
-            shutil.copyfile(src, dst)
-            console.print(f"[green]created[/] {dst.relative_to(root)}")
+def init(
+    here: bool = typer.Option(False, "--here", help="Create the workspace in the current directory"),
+) -> None:
+    """Create a workspace: config/config.yaml, config/profile_data.yaml and data/."""
+    root = Path.cwd().resolve() if here else find_project_root()
+    (root / "config").mkdir(parents=True, exist_ok=True)
     (root / "data" / "private").mkdir(parents=True, exist_ok=True)
+    (root / WORKSPACE_MARKER).touch()
+    templates = files("autoapply") / "templates"
+    for name in ("config", "profile_data"):
+        dst = root / "config" / f"{name}.yaml"
+        if dst.exists():
+            console.print(f"[dim]exists[/]  {dst}")
+        else:
+            dst.write_text((templates / f"{name}.example.yaml").read_text(encoding="utf-8"), encoding="utf-8")
+            console.print(f"[green]created[/] {dst}")
     console.print(
-        "\nNext:\n  1. Edit config/profile_data.yaml and config/config.yaml\n"
+        f"\nWorkspace: [bold]{root}[/]\nNext:\n"
+        "  1. Edit config/profile_data.yaml and config/config.yaml\n"
         "  2. Put your resume at data/private/resume.pdf\n"
-        "  3. autoapply profile build  →  autoapply jobs fetch  →  autoapply jobs select  →  autoapply run"
+        "  3. autoapply profile build → jobs fetch → jobs select → run --dry-run"
     )
+
+
+@app.command("install-browser")
+def install_browser() -> None:
+    """Download the Chromium build this version of Playwright expects."""
+    cmd = [sys.executable, "-m", "playwright", "install", "chromium"]
+    if sys.platform.startswith("linux") and shutil.which("apt-get") and not shutil.which("pacman"):
+        cmd.append("--with-deps")  # Debian/Ubuntu only; Arch gets libraries from pacman
+    raise typer.Exit(subprocess.call(cmd))
 
 
 @app.command()
@@ -78,13 +109,12 @@ def doctor(config: Path | None = ConfigOpt) -> None:
         with sync_playwright() as pw:
             exe = cfg.browser.executable_path or Path(pw.chromium.executable_path)
         ok = cfg.resolve(exe).exists() if cfg.browser.executable_path else Path(exe).exists()
-        t.add_row(
-            "Chromium", f"{exe}" if ok else "[red]missing[/] — run `uv run playwright install chromium`"
-        )
+        t.add_row("Chromium", f"{exe}" if ok else "[red]missing[/] — run `autoapply install-browser`")
     except Exception as exc:  # noqa: BLE001
         t.add_row("Playwright", f"[red]{escape(str(exc).splitlines()[0])}[/]")
     for label, p in (
-        ("config.yaml", find_project_root() / "config" / "config.yaml"),
+        ("workspace", cfg.project_root),
+        ("config.yaml", cfg.project_root / "config" / "config.yaml"),
         ("profile_data.yaml", cfg.resolve(cfg.paths.profile)),
         ("resume.pdf", cfg.resolve(cfg.paths.resume_pdf)),
         ("user_profile.json", cfg.resolve(cfg.paths.user_profile_out)),
