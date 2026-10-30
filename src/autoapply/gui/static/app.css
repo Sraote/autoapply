@@ -185,6 +185,8 @@ td.row-actions .link + .link { margin-left: 12px; }
 
 /* ---------- the prompt: autoapply needs you ---------- */
 dialog { border: 0; padding: 0; color: var(--ink); background: var(--surface); }
+/* A closed dialog must stay hidden whatever display a class below gives it. */
+dialog:not([open]) { display: none !important; }
 dialog::backdrop { background: rgba(10, 20, 28, .55); }
 .prompt { width: min(680px, calc(100vw - 32px)); border-radius: var(--radius-lg); overflow: hidden; box-shadow: 0 24px 60px rgba(0, 0, 0, .35); }
 .prompt form { display: grid; grid-template-columns: 10px 1fr; }
@@ -211,7 +213,7 @@ dialog::backdrop { background: rgba(10, 20, 28, .55); }
 .filled tr:first-child td { border-top: 0; }
 .filled td:first-child { color: var(--muted); width: 45%; }
 .plain { width: min(520px, calc(100vw - 32px)); border-radius: var(--radius-lg); padding: 24px; }
-.plain form, .plain { display: grid; gap: 14px; }
+.plain[open], .plain form { display: grid; gap: 14px; }
 .plain.wide { width: min(820px, calc(100vw - 32px)); }
 
 .toast {

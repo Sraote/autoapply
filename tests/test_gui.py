@@ -90,6 +90,21 @@ def test_gui_applies_through_dialogs(workspace):
                 await expect(row.locator("input[type=checkbox]")).to_be_checked()
                 await expect(row.locator(".status")).to_have_text("Queued")
 
+                # Closed dialogs stay hidden on every page; opening and closing them works.
+                for view in ("jobs", "run", "profile", "settings"):
+                    await page.click(f"button.nav[data-view={view}]")
+                    for dlg in ("#add-dialog", "#history-dialog", "#prompt"):
+                        await expect(page.locator(dlg)).to_be_hidden()
+                await page.click("button.nav[data-view=jobs]")
+                await page.click("#open-add")
+                await expect(page.locator("#add-dialog")).to_be_visible()
+                await page.click("#add-cancel")
+                await expect(page.locator("#add-dialog")).to_be_hidden()
+                await row.get_by_role("button", name="History").click()
+                await expect(page.locator("#history-dialog")).to_be_visible()
+                await page.click("#history-close")
+                await expect(page.locator("#history-dialog")).to_be_hidden()
+
                 # Profile editor rejects invalid YAML and keeps the file intact.
                 await page.click("button.nav[data-view=profile]")
                 await expect(page.locator("#profile-text")).not_to_have_value("")
